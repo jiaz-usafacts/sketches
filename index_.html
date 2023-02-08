@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="d3.js"></script>
+<style>
+	body{
+		font-family:helvetica;
+	}
+	.labels{
+		font-family:helvetica;
+		font-size:10px;
+	}
+	.chart{
+		display:inline-block;
+	}
+	p{
+		width:600px;
+	}
+	.subtitle{
+		font-weight:700;
+		font-size:18px;
+	}
+</style>
+<!-- Create a div where the graph will take place -->
+<p class='subtitle'>Most Americans don't move</p>
+
+<p>
+Most Americans didn't move in 2021. According to the American Community Survey, 87% of americans lived in the same house as 1 year ago. This is not particularly out of character, and over the last 11 years, this percentage has steadily risen a fraction of a percentage point from 84.6 in 2010 to 86.3% of americans reported living in the same house as 1 year ago in 2019. 
+</p>
+<p>
+Those who move from abroad has fallen to be around 0.4% of the country's population from .6%.
+</p>
+<div id="stream"></div>
+<div id="linechart"></div>
+<p class='subtitle'>In most counties, 85% or more of the residents stayed in the same house</p>
+
+<p>The rate at which americans remain in the same house is largely similar across all counties. Migration from abroad has been consistenly concentrated in just a handful of counties. </p>
+<p>
+<div id="map"></div>
+<div id="sameMap"></div>
+	<p class='subtitle'>People from abroad make up the largest percentages of the population in these counties</p>
+<div id="abroadMap"></div>
+
+		<p class='subtitle'>But the largest portion of people from abroad go to these particular areas</p>
+	<div id="proportionsMap"></div>
+
+
+
+
+<script>
+	var streamKeys = {
+"B07003_001E":'Total',
+"B07003_004E":"Same House 1 Year Ago",
+"B07003_007E":"Moved Within Same County",
+"B07003_010E":"Moved From Different County Within Same State",
+"B07003_013E":"Moved From Different State",
+"B07003_016E":"Moved From Abroad"}
+	var      keys={
+	
+	"ACS21_5yr_B07003001":'Total',
+"ACS21_5yr_B07003004":"Total Same House 1 Year Ago",
+"ACS21_5yr_B07003007":"Total Moved Within Same County",
+"ACS21_5yr_B07003010":"Total Moved From Different County Within Same State",
+"ACS21_5yr_B07003013":"Total Moved From Different State",
+"ACS21_5yr_B07003016":"Total Moved From Abroad",      
+"SE_A00002_001":" Total Population",
+"SE_A00002_002":" Population Density (Per Sq. Mile)",
+"SE_A00002_003":" Area (Land)",
+"SE_A12002_001":" Population 25 Years and Over:",
+"SE_A12002_005":" Population 25 Years and Over: Bachelor's Degree or More",
+"SE_A14006_001":" Median Household Income (In 2021 Inflation Adjusted Dollars)",
+"SE_A14008_001":" Average Household Income (In 2021 Inflation Adjusted Dollars)",
+"ACS21_5yr_B05001001":"  Total",
+"ACS21_5yr_B05001002":"  Total: U.S. Citizen Born In The United States",
+"ACS21_5yr_B05001005":"  Total: U.S. Citizen By Naturalization",
+"ACS21_5yr_B05001006":"  Total: Not A U.S. Citizen"}
+
+// set the dimensions and margins of the graph
+var margin = {top: 30, right: 30, bottom: 70, left: 60},
+    width = window.innerWidth - margin.left - margin.right,
+    height =  window.innerHeight - margin.bottom;
+
+// append the svg object to the body of the page
+
+// Parse the Data
+	var wholeCountryData={};
+var projection = d3.geoAlbersUsa()//.scale(500)
+
+		 Promise.all([
+			 d3.json('allCountiesGeojson.geojson'),
+			 d3.json('../R13287792_SL050.json'),
+			 d3.csv("../R13287794_SL140.csv"),
+		 	d3.json('../5Year_country_allPop.json'),
+		 	d3.json('../1Year_country_allPop.json'),
+			 d3.csv('../1year_2021_mobility.csv'),
+			 d3.csv('https://raw.githubusercontent.com/holtzy/data_to_viz/master/Example_dataset/5_OneCatSevNumOrdered_wide.csv')
+		 ])
+		 .then(function(d){
+		 	
+			drawAll(d)
+			 
+		 })
+		 function formatStream(data){
+		 	//console.log(data)
+			 var formatted = []
+			 var keys = []
+			 for(var i in data){
+				 var yearData = data[i]
+			 	// console.log(yearData)
+				 entry = {}
+				 entry['year']=i
+				 for(var y in yearData){
+					 value = yearData[y]['value']
+					 total = yearData["B07003_001E"]['value']
+				 	// console.log(y,value)
+					 if(y!="B07003_001E"){
+					 	entry[y]=value/total
+						 if(keys.indexOf(y)==-1){
+						 	keys.push(y)
+						 }						 
+					 }
+				 }
+				 formatted.push(entry)				 
+			 }
+			 console.log(formatted)
+			 
+			 return [formatted,keys]
+		 }
+		 
+		 function drawStream(data){
+			 var colors = ["#9E9E9E","#249EDC",
+"#E390D6",
+"#FFB74D",
+"#81C784",
+"#6ce4d2"]
+				var height = 400
+			 var width = 400
+			 var m = 40
+				var keys = data[1]
+				var svg = d3.select("#stream").append("svg").attr("width",width+m*6).attr("height",height)
+
+				var yScale = d3.scaleLinear()
+				.domain([-.5,.5])
+				.range([height-m*2,0])
+
+				var stackedData = d3.stack()
+				.offset(d3.stackOffsetSilhouette)
+				.keys(keys)
+				(data[0])
+			 console.log(stackedData)
+			 var lastYearData = stackedData[0][10].data
+			//console.log(lastYearData)
+			 var lastYearDataArray = []
+			 for(var l in lastYearData){
+			 	//console.log(l)
+				 if(l!="year"){
+				 	lastYearDataArray.push({key:l,percent:lastYearData[l]})
+				 }
+			 }
+			 var lastYearYPoints = {}
+			 for(var y in stackedData){
+				 console.log(stackedData[y])
+				 lastYearYPoints[stackedData[y]['key']]=stackedData[y][10][0]
+			 }
+			 
+			 console.log(lastYearYPoints)
+			 var yAxis = d3.axisLeft().scale(yScale)
+			 .tickFormat(function(d){return Math.round((d+.5)*100)+"%"})
+			 svg.append("g").call(yAxis).attr("transform","translate("+m+","+(m)+")")
+			 
+			 console.log(lastYearDataArray)
+			 
+			 svg.append("g").selectAll(".catLabel")
+			 .data(lastYearDataArray)
+			 .enter()
+			 .append('text')
+			 .attr("class","labels")
+			 .attr("transform","translate("+(width-m)+","+(m)+")")
+			 .text(function(d){
+				 console.log(d.key)
+				 console.log(streamKeys )
+				 return streamKeys[d.key]})
+			 .attr("x",0)
+			 .attr("y",function(d){
+				 console.log(d)
+				 return yScale(lastYearYPoints[d.key])})
+			 
+			 var xScale = d3.scaleLinear().domain([2010,2021]).range([0,width-m*2])
+
+
+var xAxis = d3.axisBottom().scale(xScale).tickFormat(d3.format("d"))
+			 svg.append("g").call(xAxis)			 .attr("transform","translate("+m+","+(height-m)+")")
+
+			 
+			 
+			 svg.append("text").text("")
+			 
+	 svg
+	     .selectAll("mylayers")
+	     .data(stackedData)
+	     .enter()
+	     .append("path")
+			 .attr("transform","translate("+m+","+m+")")
+	       .style("fill", function(d,i) { return colors[i] })
+			 .style("stroke","#fff").style("stroke-width",.5)
+	       .attr("d", d3.area()
+	         .x(function(d, i) { 
+				 //console.log(d)
+				 return xScale(d.data.year); })
+	         .y0(function(d) { return yScale(d[0]); })
+	         .y1(function(d) { return yScale(d[1]); })
+	     )
+			 
+			 
+		 }
+		 
+		 
+		 function drawAll(d){
+			// console.log(d[6])
+			 
+			 var data =d[1]
+			 var geo = d[0]
+			 //console.log(d[3])
+			 var timelineData = d[3]
+			 var timelineData1Year = d[4]
+			 //console.log(d[5])
+			 
+			 			//
+			// var streamData = formatStream(timelineData1Year)
+			//  drawStream(streamData)
+			 for(var i in d[5][0]){
+			 	//console.log(i)
+				 wholeCountryData[i]= d[5][0][i]
+			 }
+			 //console.log(wholeCountryData)
+			 
+// drawLine(timelineData,'B07003_004E',"B07003_001E")			 //
+			 // drawLine(timelineData1Year,'B07003_004E',"B07003_001E")
+			 //
+			 // //drawLine(timelineData,'B07003_016E',"B07003_001E")
+			 // drawLine(timelineData1Year,'B07003_016E',"B07003_001E")
+			 //
+			 //
+			 // //
+			 // drawLine(timelineData1Year,'B07003_007E',"B07003_001E")
+			 // drawLine(timelineData1Year,'B07003_010E',"B07003_001E")
+			 // drawLine(timelineData1Year,'B07003_013E',"B07003_001E")
+			 //
+			 //
+			 // drawHisto("sameMap",data,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001",'same house')
+			 // drawPopHisto("sameMap",data,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001",'same house')
+			 //
+			 //  drawMap("sameMap",geo,data,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001",0,1)
+			 // drawInvertedMap(geo,data,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001",0,1)
+			 // drawHisto("abroadMap",data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",'abroad')
+			 // drawPopHisto("abroadMap",data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",'abroad')
+			 //
+			 // drawMap("abroadMap",geo,data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",0,1)
+			  drawDistributionMap("proportionsMap",geo,data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",0,1)
+			 drawPopDistributionMap("proportionsMap",geo,data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",0,1)
+			 drawNormalizedDistributionMap("proportionsMap",geo,data,'ACS21_5yr_B07003016',"ACS21_5yr_B07003001",0,1)
+ // 			 drawMap(geo,data,'ACS21_5yr_B07003007',"ACS21_5yr_B07003001",0,1)
+ // 			 drawMap(geo,data,'ACS21_5yr_B07003010',"ACS21_5yr_B07003001",0,1)
+ // 			 drawMap(geo,data,'ACS21_5yr_B07003013',"ACS21_5yr_B07003001",0,1)
+			 
+			
+			 
+		 }
+function drawPopHisto(divName,data,column,totalsColumn,title){
+			var m = 30
+			
+			 var width = 500
+			 var height = 100
+			 var histoDiv = d3.select("#"+divName).append("div")
+		histoDiv.append("div").html(title+" population living in counties")
+			 var svg = histoDiv.append("svg").attr("width",width+m*2).attr("height",height+m*2)
+			 
+			 var maxPercent= d3.max(Object.keys(data),function(d){
+				 var value = data[d][column]
+				 var total = data[d][totalsColumn]
+				 var percent =(value/total)
+			
+			 	return percent
+			 })
+			
+			//console.log(maxPercent)
+			var xScale = d3.scaleLinear().domain([0,maxPercent]).range([0,width])
+			 
+			 
+			 var xAxis = d3.axisBottom().scale(xScale)
+			 svg.append("g").call(xAxis).attr("transform","translate("+m+","+(height+m)+")")
+			 
+	   	  const histogram = d3.histogram()
+	         .value(function(d) {
+				 var value = data[d][column]
+				 var total = data[d][totalsColumn]
+				 var percent =value/total
+				//console.log(percent)
+			 	return percent
+			  })   // I need to give the vector of value
+	         .domain(xScale.domain())  // then the domain of the graphic
+	         .thresholds(20); // then the numbers of bins
+			
+		     const bins = histogram(Object.keys(data));
+			console.log(data)
+			  console.log(bins)
+			 var bw = width/bins.length
+			 
+			 var populationHistoData = []
+			 for(var i in bins){
+				 //SE_A00002_001
+
+			 	//console.log(bins[i])
+				 var bin = bins[i]
+				 bins[i]['pop']=0
+				 
+				 for(var b in bin){
+				 	//console.log(bin[b])
+					 var geoid = bin[b]
+					 if(Object.keys(data).indexOf(geoid)>-1){
+					 	var pop = data[geoid]['SE_A00002_001']
+						 bins[i]['pop']+=pop
+					 }
+				 }
+			 }
+			 console.log(bins)
+			 
+			 var max = d3.max(bins, function(d){return d.pop})
+			 console.log("max pop",max)
+		//	 console.log(bins)
+			 var yScale = d3.scaleLinear().domain([1,max]).range([2,height])
+			 
+			 
+			 svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll(".histoBar")
+			 .data(bins)
+			 .enter()
+			 .append("rect")
+			 .attr("x",function(d,i){return i*bw})
+			 .attr("width",bw-1)
+			 .attr("y",function(d,i){
+				 //console.log(d.length)
+				 if(d.length==0){
+				 	return 0
+				 }
+				 console.log(d)
+			 	return height-yScale(d['pop'])
+			 })
+			 .attr("height",function(d,i){
+				 //console.log(d.length)
+				 if(d.length==0){
+				 	return 0
+				 }
+			 	return yScale(d['pop'])
+			 })
+			 
+			
+		 }
+		 
+		 
+		 
+		 
+		 function drawHisto(divName,data,column,totalsColumn,title){
+		 	
+			
+			var m = 30
+			 
+			 var width = 500
+			 var height = 100
+			 var histoDiv = d3.select("#"+divName).append("div")
+		histoDiv.append("div").html(title+" counties")
+			 var svg = histoDiv.append("svg").attr("width",width+m*2).attr("height",height+m*2)
+			 
+			 var maxPercent= d3.max(Object.keys(data),function(d){
+				 var value = data[d][column]
+				 var total = data[d][totalsColumn]
+				 var percent =(value/total)
+			
+			 	return percent
+			 })
+			
+			//console.log(maxPercent)
+			var xScale = d3.scaleLinear().domain([0,maxPercent]).range([0,width])
+			 
+			 
+			 var xAxis = d3.axisBottom().scale(xScale)
+			 svg.append("g").call(xAxis).attr("transform","translate("+m+","+(height+m)+")")
+			 
+	   	  const histogram = d3.histogram()
+	         .value(function(d) {
+				 var value = data[d][column]
+				 var total = data[d][totalsColumn]
+				 var percent =value/total
+				//console.log(percent)
+			 	return percent
+			  })   // I need to give the vector of value
+	         .domain(xScale.domain())  // then the domain of the graphic
+	         .thresholds(20); // then the numbers of bins
+			
+		     const bins = histogram(Object.keys(data));
+			 console.log(bins)
+			 var bw = width/bins.length
+		
+			 
+			 var max = d3.max(bins, function(d){return d.length})
+		//	 console.log(max)
+		//	 console.log(bins)
+			 var yScale = d3.scaleLinear().domain([1,max]).range([2,height])
+			 
+			 svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll(".histoBarLabel")
+			 .data(bins)
+			 .enter()
+			 .append("text")
+			 .attr("class",'labels')
+			 .attr("x",function(d,i){return i*bw})
+			 .attr("y",function(d,i){
+			 	return height-yScale(d.length)
+			 })
+			 .text(function(d,i){
+				 if(d.length>0){
+					 return d.length
+				 }
+			 })
+			 
+			 
+			 svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll(".histoBar")
+			 .data(bins)
+			 .enter()
+			 .append("rect")
+			 .attr("x",function(d,i){return i*bw})
+			 .attr("width",bw-1)
+			 .attr("y",function(d,i){
+				 //console.log(d.length)
+				 if(d.length==0){
+				 	return 0
+				 }
+			 	return height-yScale(d.length)
+			 })
+			 .attr("height",function(d,i){
+				 //console.log(d.length)
+				 if(d.length==0){
+				 	return 0
+				 }
+			 	return yScale(d.length)
+			 })
+			 
+			// console.log(bins)
+		 }
+		 
+		 function drawLine(data,column,totalsColumn){
+			 
+			 var title = data["2010"][column]["label"]
+			 
+		 	var width = 400
+			 var height = 150
+			var linechartDiv = d3.select("#linechart").append("div").attr("id",'lineChart').attr("class","chart")
+			 
+			 linechartDiv.append("div").html(title)
+			 
+			var svg = linechartDiv.append("svg").attr("width",width).attr("height",height)
+			var m = 30
+			var xScale = d3.scaleLinear().domain([2009,2021]).range([0,width-m*2])
+			 
+			 
+			 var max = d3.max(Object.keys(data),function(d){
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =(value/total*100)
+			 	return percent
+			 })
+		//	 console.log(max)
+			 
+			var yScale = d3.scaleLinear().domain([0,max]).range([height-m*2,0])
+			 
+			 
+			var xAxis = d3.axisBottom().scale(xScale).ticks(3)
+			 var yAxis = d3.axisLeft().scale(yScale).ticks(4)
+			 
+			 
+ svg.append("path").attr("transform","translate("+m+","+m+")")
+       .datum(Object.keys(data))
+       .attr("fill", "none")
+       .attr("stroke", "black")
+       .attr("stroke-width", 1.5)
+       .attr("d", d3.line()
+         .x(function(d) { return xScale(d) })
+         .y(function(d) { 
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =(value/total*100)
+			 return yScale(percent)
+		  })
+         )
+			 
+			 
+			 svg.append("g").call(xAxis).attr("transform","translate("+m+","+(height-m)+")")
+			svg.append("g").call(yAxis).attr("transform","translate("+m+","+(m)+")")
+			
+			svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll("circle")
+			 .data(Object.keys(data))
+			 .enter()
+			 .append("circle")
+			 .attr("r",2)
+			 .attr("cx",function(d){
+			 	return xScale(d)
+			 })
+			 .attr("cy",function(d){
+				// console.log(data[d])
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =(value/total*100)
+			 	return yScale(percent)
+			 })
+			 
+			 
+			svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll("text")
+			 .data(Object.keys(data))
+			 .enter()
+			 .append("text")
+			 .attr("class","labels")
+			 .text(function(d){
+				 var value = data[d][column].value
+				 if(value>100000){
+				 return Math.round(data[d][column].value/100000)/10+"m"
+				 	
+				 }
+				 return Math.round(data[d][column].value/1000)+"k"
+				 
+			 })
+			 .attr("text-anchor","middle")
+			 .attr("x",function(d){
+			 	return xScale(d)
+			 })
+			 .attr("y",function(d){
+				// console.log(data[d])
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =(value/total*100)
+			 	return yScale(percent)+15
+			 })
+			 
+			svg.append("g").attr("transform","translate("+m+","+m+")")
+			 .selectAll("text")
+			 .data(Object.keys(data))
+			 .enter()
+			 .append("text")
+			 .attr("class","labels")
+			 .text(function(d){
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =Math.round(value/total*1000)/10
+				 return percent+"%"
+			 })
+			 .attr("text-anchor","middle")
+			 .attr("x",function(d){
+			 	return xScale(d)
+			 })
+			 .attr("y",function(d){
+				// console.log(data[d])
+				 var value = data[d][column].value
+				 var total = data[d][totalsColumn].value
+				 var percent =(value/total*100)
+			 	return yScale(percent)-5
+			 })
+			 
+			 
+			
+			 
+		 }
+		 
+function drawMap(divName,geo,data,selectedColumn,totalsColumn,min,max){
+				 var title = keys[selectedColumn]
+				 
+				 
+			var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+
+		
+		var popup = mapDiv.append("div").attr("class","popup")//.style("position","absolute")
+				 .style("width","200px").style("height","100px")
+	.style("padding","10px")
+			 mapDiv.append("div").html(title)
+				 
+	   var svg = d3.select("#"+selectedColumn)
+	     .append("svg").style("z-index",0)
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height", 600 + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			var max = d3.max(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+			var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+			var cScale = d3.scaleQuantize().domain([0,max]).range(colors)
+				 
+				var b = 10
+				var key = svg.append('g').selectAll(".keyRect")
+				 .data(colors)
+				 .enter()
+				 .append("rect")
+				 .attr("class",'keyRect')
+				 .attr("x",function(d,i){return i*b*2})
+				 .attr("y",b)
+				 .attr("height",b)
+				 .attr("width",b*2-1)
+				 .attr("fill",function(d){return d})
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				var geoid = d.properties['GEOID']
+				 if(Object.keys(data).indexOf(geoid)>-1){
+				 	return cScale(data[geoid][selectedColumn]/data[geoid][totalsColumn])
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 var geoid = d.properties["GEOID"]
+				 var countyName = d.properties['NAMELSAD']
+				 var stateName = d.properties["STATE_NAME"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 var value = data[geoid][selectedColumn]
+				 var total = data[geoid][totalsColumn]
+				 var percent = Math.round(value/total*10000)/100+"% of county pop"
+				 var proportion = Math.round(value/wholeCountryValue*10000)/100+"% of all"
+				 console.log(countyName, stateName, value, percent)
+				 
+				 popup.html(countyName+"<br>"+stateName+"<br>"+percent+" of total population "+total)
+				 //.style("position","absolute")
+				 
+				 .style("left",event.clientX+"px").style("top",event.clientY+"px").style("z-index",999)
+				 .style("border","1px solid black")
+				// console.log(geoid,data[geoid][selectedColumn],data[geoid][totalsColumn],
+	// 				Math.round(data[geoid][selectedColumn]/data[geoid][totalsColumn]*100)
+	// 				)
+			 });
+       
+			// console.log(data)
+}
+function drawInvertedMap(geo,data,selectedColumn,totalsColumn,min,max){
+				 var title = keys[selectedColumn]
+				 
+				 
+			var mapDiv= d3.select("#map").append('div').attr("id",selectedColumn)
+			 mapDiv.append("div").html(title)
+				 
+	   var svg = d3.select("#"+selectedColumn)
+	     .append("svg")
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height", height + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			var max = d3.max(Object.keys(data),function(d){return 1-(data[d][selectedColumn]/data[d][totalsColumn])})
+			var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+			var cScale = d3.scaleQuantize().domain([0,max]).range(colors)
+				 
+				var b = 10
+				var key = svg.append('g').selectAll(".keyRect")
+				 .data(colors)
+				 .enter()
+				 .append("rect")
+				 .attr("class",'keyRect')
+				 .attr("x",function(d,i){return i*b*2})
+				 .attr("y",b)
+				 .attr("height",b)
+				 .attr("width",b*2-1)
+				 .attr("fill",function(d){return d})
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				var geoid = d.properties['GEOID']
+				 if(Object.keys(data).indexOf(geoid)>-1){
+				 	return cScale(1-(data[geoid][selectedColumn]/data[geoid][totalsColumn]))
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 var geoid = d.properties["GEOID"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 var value = data[geoid][selectedColumn]
+				 
+				 var proportion = value/wholeCountryValue
+				 console.log(value, proportion*100)
+				// console.log(geoid,data[geoid][selectedColumn],data[geoid][totalsColumn],
+	// 				Math.round(data[geoid][selectedColumn]/data[geoid][totalsColumn]*100)
+	// 				)
+			 });
+       
+			// console.log(data)
+}
+
+
+function drawDistributionMap(divName,geo,data,selectedColumn,totalsColumn,min,max){
+				 var title = keys[selectedColumn]
+				 console.log(divName)
+				 
+			var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+			 mapDiv.append("div").html(title)
+		
+		var popup = mapDiv.append("div").attr("class","popup")//.style("position","absolute")
+				 .style("width","200px").style("height","100px")
+	.style("padding","10px")
+	   var svg = d3.select("#"+selectedColumn)
+	     .append("svg")
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height", 600 + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			var max = d3.max(Object.keys(data),
+				 function(d){
+
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+					 
+					 return data[d][selectedColumn]/wholeCountryValue}
+				 )
+				 console.log("max for distribution",max)
+			var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+				 
+			var cScale = d3.scaleQuantize().domain([0,.005]).range(colors)
+				 
+				var b = 10
+				var key = svg.append('g').selectAll(".keyRect")
+				 .data(colors)
+				 .enter()
+				 .append("rect")
+				 .attr("class",'keyRect')
+				 .attr("x",function(d,i){return i*b*2})
+				 .attr("y",b)
+				 .attr("height",b)
+				 .attr("width",b*2-1)
+				 .attr("fill",function(d){return d})
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				var geoid = d.properties['GEOID']
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 
+				// var proportion = value/wholeCountryValue
+				// console.log(value, proportion*100)
+				 
+				// return cScale(proportion)
+				 
+				 if(Object.keys(data).indexOf(geoid)>-1){
+				 	var value = data[geoid][selectedColumn]
+					  var proportion = value/wholeCountryValue
+				 	return cScale(proportion)
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 var geoid = d.properties["GEOID"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 var countyName = d.properties['NAMELSAD']
+				 var stateName = d.properties["STATE_NAME"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				 var value = data[geoid][selectedColumn]
+				 
+				 var proportion = Math.round(value/wholeCountryValue*10000)/100+"%"
+				 
+				 popup.html(countyName+"<br>"+stateName+"<br>"+proportion+" of all from Abroad")
+				 //.style("position","absolute")
+				 
+				 .style("left",event.clientX+"px").style("top",event.clientY+"px").style("z-index",999)
+				 .style("border","1px solid black")
+				 //console.log(value, proportion*100)
+				// console.log(geoid,data[geoid][selectedColumn],data[geoid][totalsColumn],
+	// 				Math.round(data[geoid][selectedColumn]/data[geoid][totalsColumn]*100)
+	// 				)
+			 });
+       
+			// console.log(data)
+}
+
+
+function drawPopDistributionMap(divName,geo,data,selectedColumn,totalsColumn,min,max){
+				 var title = keys[selectedColumn]
+				 
+			var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+			 mapDiv.append("div").html(title)
+		
+		var popup = mapDiv.append("div").attr("class","popup")//.style("position","absolute")
+				 .style("width","200px").style("height","100px")
+	.style("padding","10px")
+	   var svg = d3.select("#"+selectedColumn)
+	     .append("svg")
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height", 600 + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			var max = d3.max(Object.keys(data),
+				 function(d){
+
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+					 
+					 return data[d][selectedColumn]/wholeCountryValue}
+				 )
+				 console.log("max for distribution",max)
+			var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+				 
+			//var cScale = d3.scaleLinear().domain([0,.000001]).range(["#dddddd","#c308f9"])
+			var cScale = d3.scaleQuantize().domain([0,.005]).range(colors)
+				 
+				var b = 10
+				var key = svg.append('g').selectAll(".keyRect")
+				 .data(colors)
+				 .enter()
+				 .append("rect")
+				 .attr("class",'keyRect')
+				 .attr("x",function(d,i){return i*b*2})
+				 .attr("y",b)
+				 .attr("height",b)
+				 .attr("width",b*2-1)
+				 .attr("fill",function(d){return d})
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				var geoid = d.properties['GEOID']
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 
+				// var proportion = value/wholeCountryValue
+				// console.log(value, proportion*100)
+				 
+				// return cScale(proportion)
+				 
+				 if(Object.keys(data).indexOf(geoid)>-1){
+				 var wholeCountryTotal = wholeCountryData['ACS21_B07003001']
+				 var total = data[geoid][totalsColumn]
+				 var popProportion = Math.round(total/wholeCountryTotal*10000)/100+"%"
+				 console.log(total/wholeCountryTotal)
+				 	var value = data[geoid][selectedColumn]
+					  var proportion = value/wholeCountryValue
+				 	return cScale(total/wholeCountryTotal)
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 var geoid = d.properties["GEOID"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 var countyName = d.properties['NAMELSAD']
+				 var stateName = d.properties["STATE_NAME"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				 var value = data[geoid][selectedColumn]
+				 
+				 var proportion = Math.round(value/wholeCountryValue*10000)/100+"%"
+				 
+				 var wholeCountryTotal = wholeCountryData['ACS21_B07003001']
+				 var total = data[geoid][totalsColumn]
+				 //console.log(wholeCountryTotal ,total)
+				 var popProportion = Math.round(total/wholeCountryTotal*10000)/100+"%"
+				 
+				 popup.html(countyName+"<br>"+stateName+"<br>"+proportion+" of all from Abroad<br> this county has "+popProportion+" of total population.")
+				 //.style("position","absolute")
+				 
+				 .style("left",event.clientX+"px").style("top",event.clientY+"px").style("z-index",999)
+				 .style("border","1px solid black")
+				 //console.log(value, proportion*100)
+				// console.log(geoid,data[geoid][selectedColumn],data[geoid][totalsColumn],
+	// 				Math.round(data[geoid][selectedColumn]/data[geoid][totalsColumn]*100)
+	// 				)
+			 });
+       
+			// console.log(data)
+}
+function drawNormalizedDistributionMap(divName,geo,data,selectedColumn,totalsColumn,min,max){
+				 var title = keys[selectedColumn]
+				 
+			var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+			 mapDiv.append("div").html(title)
+		
+		var popup = mapDiv.append("div").attr("class","popup")//.style("position","absolute")
+				 .style("width","200px").style("height","100px")
+	.style("padding","10px")
+	   var svg = d3.select("#"+selectedColumn)
+	     .append("svg")
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height", 600 + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			var max = d3.max(Object.keys(data),
+				 function(d){
+
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+					 
+					 return data[d][selectedColumn]/wholeCountryValue}
+				 )
+				 console.log("max for distribution",max)
+			var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+				 
+			//var cScale = d3.scaleLinear().domain([0,.000001]).range(["#dddddd","#c308f9"])
+			var cScale = d3.scaleQuantize().domain([0,.005]).range(colors)
+				 
+				var b = 10
+				var key = svg.append('g').selectAll(".keyRect")
+				 .data(colors)
+				 .enter()
+				 .append("rect")
+				 .attr("class",'keyRect')
+				 .attr("x",function(d,i){return i*b*2})
+				 .attr("y",b)
+				 .attr("height",b)
+				 .attr("width",b*2-1)
+				 .attr("fill",function(d){return d})
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				var geoid = d.properties['GEOID']
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 
+				// var proportion = value/wholeCountryValue
+				// console.log(value, proportion*100)
+				 
+				// return cScale(proportion)
+				 
+				 if(Object.keys(data).indexOf(geoid)>-1){
+				 var wholeCountryTotal = wholeCountryData['ACS21_B07003001']
+				 var total = data[geoid][totalsColumn]
+					 var popProportion = total/wholeCountryTotal
+				 console.log(total/wholeCountryTotal)
+				 	var value = data[geoid][selectedColumn]
+					  var proportion = value/wholeCountryValue
+					 
+				 	return cScale(proportion-popProportion )
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 var geoid = d.properties["GEOID"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				// console.log(data[geoid])
+				 var countyName = d.properties['NAMELSAD']
+				 var stateName = d.properties["STATE_NAME"]
+				 var wholeCountryColumn = selectedColumn.replace("ACS21_5yr_","ACS21_")
+				 var wholeCountryValue = wholeCountryData[wholeCountryColumn]
+				 var value = data[geoid][selectedColumn]
+				 
+				 var proportion = Math.round(value/wholeCountryValue*10000)/100+"%"
+				 
+				 var wholeCountryTotal = wholeCountryData['ACS21_B07003001']
+				 var total = data[geoid][totalsColumn]
+				 //console.log(wholeCountryTotal ,total)
+				 var popProportion = Math.round(total/wholeCountryTotal*10000)/100+"%"
+				 
+				 popup.html(countyName+"<br>"+stateName+"<br>"+proportion+" of all from Abroad<br> this county has "+popProportion+" of total population.")
+				 //.style("position","absolute")
+				 
+				 .style("left",event.clientX+"px").style("top",event.clientY+"px").style("z-index",999)
+				 .style("border","1px solid black")
+				 //console.log(value, proportion*100)
+				// console.log(geoid,data[geoid][selectedColumn],data[geoid][totalsColumn],
+	// 				Math.round(data[geoid][selectedColumn]/data[geoid][totalsColumn]*100)
+	// 				)
+			 });
+       
+			// console.log(data)
+}
+
+
+</script>

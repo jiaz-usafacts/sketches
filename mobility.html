@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="d3.js"></script>
+<style>
+	body{
+		font-family:helvetica;
+	}
+	.labels{
+		font-family:helvetica;
+		font-size:10px;
+	}
+	.chart{
+		display:inline-block;
+	}
+	p{
+		width:600px;
+	}
+	.subtitle{
+		font-weight:700;
+		font-size:18px;
+	}
+	.map{
+		display:inline-block;
+	}
+</style>
+<!-- Create a div where the graph will take place -->
+<p class='subtitle'>% of people NOT in same house</p>
+
+
+<div class="map" id="abroadMap"></div>
+<div class="map" id="popMap"></div>
+<div class="map" id="normalMap"></div>
+
+
+
+
+<script>
+//      B07003004:      Total: Same House 1 Year Ago
+///Users/jzhang/Documents/whoMovedWhere/2021_1year/R13288714_SL050.csv
+
+
+// set the dimensions and margins of the graph
+var margin = {top: 20, right: 20, bottom: 30, left: 20},
+    width = 800 - margin.left - margin.right,
+    height =  400 - margin.bottom;
+
+// append the svg object to the body of the page
+
+// Parse the Data
+	var projection
+	var wholeCountryData={};
+
+Promise.all([
+	d3.json('allCountiesGeojson.geojson'),
+	d3.csv('../2021_1year/R13288714_SL050.csv'),
+	d3.csv('./R13294042_SL050.csv')
+])
+.then(function(d){
+
+	drawAll(d)
+
+})
+		
+function drawAll(d){
+// console.log(d[6])
+
+	var data =d[1]
+	var geo = d[0]
+	
+	var data5Year = d[2]
+	console.log(data5Year)
+	//console.log(d[3])
+	var timelineData = d[3]
+	var timelineData1Year = d[4]
+	projection = d3.geoAlbersUsa().fitExtent([[0,0],[width,height]],geo)
+
+	drawInverseMap("1 year estimates","abroadMap",geo,data,'ACS21_B07003004',"ACS21_B07003001")
+	drawInverseMap("5 year estimates","abroadMap",geo,data5Year,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001")
+
+}
+
+function makeDictionary(data,key){
+	//console.log(data)
+	var formatted = {}
+	for(var i in data){
+//		console.log(data[i])
+		var geoid = data[i]['Geo_FIPS']
+		formatted[geoid]=data[i]
+	}
+	return formatted
+}
+
+
+function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
+	var formatted = makeDictionary(data,selectedColumn)
+	
+				 
+			var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+			 mapDiv.append("div").html(title)
+		
+		var popup = mapDiv.append("div").attr("class","popup")
+				.style("position","absolute")
+				 .style("width","200px").style("height","100px")
+	
+	.style("padding","10px")
+	
+	   var svg = mapDiv
+	     .append("svg")
+	       .attr("width", width + margin.left + margin.right)
+	       .attr("height",height + margin.top + margin.bottom)
+	     .append("g")
+	       .attr("transform",
+	             "translate(" + margin.left + "," + margin.top + ")");
+				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+			 
+			 
+				 var defs = svg.append("defs");
+
+				 var gradient = defs.append("linearGradient")
+				 .attr("id", "svgGradient")
+				 .attr("x1", "0%")
+				 .attr("x2", "100%")
+				 .attr("y1", "0%")
+				 .attr("y2", "0%");
+				 
+				 gradient.append("stop")
+				 .attr("class", "start")
+				 .attr("offset", "0%")
+				 .attr("stop-color", "#ddd")
+				 .attr("stop-opacity", 1);
+
+				 gradient.append("stop")
+				 .attr("class", "end")
+				 .attr("offset", "100%")
+				 .attr("stop-color", "magenta")
+				 .attr("stop-opacity", 1);
+				 
+				 svg.append("rect").attr("width",200).attr("height",10).attr("x",0).attr("y",0)
+				 .attr("fill","url(#svgGradient)")
+				 
+						//
+			 var max = d3.max(Object.keys(data),
+				 function(d){
+					 var value = data[d][selectedColumn]
+					 var totals = data[d][totalsColumn]
+					 var percent = 1-value/totals
+					 return percent
+				 })
+			console.log("max",max)
+				 svg.append('text').text(Math.round(max*100)+"%")
+				 .attr("x",200).attr("y",-1).attr("text-anchor",'end')
+				 svg.append('text').text("0%").attr("x",0).attr("y",-1).attr("text-anchor",'start')
+				
+			// var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
+			//
+			var cScale = d3.scaleLinear().domain([0,max]).range(["#ddd","magenta"])
+				 
+				var b = 10
+			
+				 
+				 var groupNumber = colors.length
+		
+	   svg.append("g")
+	       .selectAll("path")
+	       .data(geo.features)
+	       .enter()
+	       .append("path")
+	         // draw each country
+	         .attr("d", d3.geoPath()
+	           .projection(projection)
+	         )
+			 .attr("stroke","none")
+	         // set the color of each country
+	         .attr("fill", function (d) {
+				// return "red"
+				 //console.log(formatted)
+				 //console.log(Object.keys(formatted).length)
+				var geoid = d.properties['GEOID']
+				 
+				 if(Object.keys(formatted).indexOf(geoid)>-1){
+					 var value = formatted[geoid][selectedColumn]
+					 var totals = formatted[geoid][totalsColumn]
+					 var percent = 1-value/totals
+					// console.log(percent) 
+				 	return cScale(percent)
+				// var proportion = value/wholeCountryValue
+				// console.log(value, proportion*100)
+				 
+				// return cScale(proportion)
+				 
+				 	var value = data[geoid][selectedColumn]
+					  var proportion = value/wholeCountryValue
+				 	return cScale(proportion)
+				 }else
+				 {
+				 	return "#fff"
+				 }
+	         })
+			 .on("mouseover",function(e,d){
+				 d3.select(this).attr("stroke","#000")
+				 var geoid = d.properties["GEOID"]
+				 
+					 var value = formatted[geoid][selectedColumn]
+					 var totals = formatted[geoid][totalsColumn]
+					 var percent = Math.round((1-value/totals)*10000)/100+"%"
+				 
+			
+				 var countyName = d.properties['NAMELSAD']
+				 var stateName = d.properties["STATE_NAME"]
+				 
+				 
+				 popup.html(countyName+"<br>"+stateName+"<br>"+percent+" moved in the last year<br>"
+			 +totals+" total population")
+				// .style("position","absolute")
+				 .style("background-color","rgba(255,255,255,.7)")
+				 .style("left",(event.clientX+20)+"px")
+				 .style("top",event.clientY+"px").style("z-index",999)
+				 .style("border","1px solid black")
+				
+			 })
+			 .on("mouseout",function(e,d){
+				 d3.select(this).attr("stroke","none")
+			 	
+			 })
+			
+}
+
+
+
+</script>

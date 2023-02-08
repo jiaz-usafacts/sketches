@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="d3.js"></script>
+<style>
+	body{
+		font-family:helvetica;
+	}
+	.subtitle{font-size:24px;}
+	
+</style>
+<!-- Create a div where the graph will take place -->
+<p class='subtitle'>FOREIGN BORN POPULATION</p>
+<div class="map" id="popMap"></div>
+<div class="map" id="distributionMap"></div>
+<div class="map" id="distributionNormalMap"></div>
+
+<script>
+var keys = {"A06001_001":"Total Population",
+"A06001_002":"Native Born",
+"A06001_003":"Foreign Born",
+"A06001_004":"Foreign Born: Naturalized Citizen",
+"A06001_005":"Foreign Born: Not a Citizen"}
+var width = 800
+var height = 400
+var wholeCountryData={};
+
+Promise.all([
+	d3.json('allCountiesGeojson.geojson'),
+	d3.csv('nativity_2021_5year_county.csv'),
+	d3.csv('nativity_2021_5year_nation.csv')
+])
+.then(function(d){
+	drawAll(d)
+})
+ 
+function drawAll(d){
+	 var geo = d[0]
+	 var data = formatDataByGeoid(d[1])
+	 var nationData = d[2][0]
+	 
+	 //console.log(nationData)
+	 var projection = d3.geoAlbersUsa().fitExtent([[0,0],[width,height]],geo)
+	 //draw a map of % county pop that are foreign born
+	 drawPopMap("popMap",geo,data,"SE_A06001_001","SE_A06001_003",projection)
+	
+	 //draw a map of % of total foreign born in that county
+	 var foreignBornKey = 'SE_A06001_003'
+	 drawDistributionMap("distributionMap",geo,data,nationData,foreignBornKey,projection)
+	
+	drawDistributionMinusPopMap("distributionNormalMap",geo,data,nationData,foreignBornKey,projection)
+}
+
+function formatDataByGeoid(data){
+	 var formatted = {}
+	 for(var i in data){
+	 	var geoid = data[i]['Geo_FIPS']
+		 formatted[geoid]=data[i]
+	 }
+	 //console.log(Object.keys(formatted))
+	 return formatted
+}
+
+function drawPopMap(divName,geo,data,totalsColumn,selectedColumn,projection){
+	var title = keys[selectedColumn]
+	// console.log(divName)
+// 	console.log(data, nationData)
+
+	var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+	mapDiv.append("div").html("% of population who are foreign born by county")
+
+	var popup = mapDiv.append("div")
+		.attr("class","popup")
+		.style("width","150px")
+		// .style("height","100px")
+		.style("padding","10px")
+					 .style("position","absolute")
+
+	var svg = mapDiv
+		.append("svg")
+		.attr("id",divName+"_svg")
+		.attr("width", width )
+		.attr("height",height)
+		.append("g")
+	var max = d3.max(Object.keys(data),
+		function(d){
+			if(Object.keys(data).indexOf(d)>-1){
+				var totalValue = data[d][totalsColumn]
+				var countyValue = data[d][selectedColumn]
+				var portion = countyValue/totalValue
+				return portion
+			}
+			
+		})
+		//console.log(max)
+	var cScale = d3.scaleLinear().domain([0,max]).range(["#ddd","magenta"])
+
+	drawKey(divName,Math.round(max*10000)/100+"%")
+
+	svg.append("g")
+		.selectAll("path")
+		.data(geo.features)
+		.enter()
+		.append("path")
+		.attr("d", d3.geoPath()
+		.projection(projection)
+		)
+		.style("cursor","pointer")
+		// .attr("stroke","#fff")
+		// .attr("stroke-width",.5)
+		// set the color of each country
+		.attr("fill", function (d) {
+		//console.log(d)
+			var geoid = d.properties['GEOID']			
+			if(Object.keys(data).indexOf(geoid)>-1){
+				var totalValue = data[geoid][totalsColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = countyValue/totalValue
+				console.log(portion)
+				return cScale(portion)
+			}
+			return "green"
+		})
+		.on("mouseover",function(e,d){
+			var geoid = d.properties["GEOID"]
+			var countyName = d.properties['NAMELSAD']
+			var stateName = d.properties["STATE_NAME"]
+			d3.selectAll("path").style("stroke","none")
+			d3.select(this).style("stroke","#000")
+			if(Object.keys(data).indexOf(geoid)>-1){
+				var totalValue = data[geoid][totalsColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = Math.round(countyValue/totalValue*10000)/100+"%"
+				popup.html(countyName+"<br>"+stateName+"<br>"+portion+" of population is foreign born")
+					.style("background-color","rgba(255,255,255,.7)")
+					.style("left",(event.clientX+20)+"px")
+					.style("top",event.clientY+"px")
+					.style("z-index",999)
+					.style("border","1px solid black")
+					.style("visibility","visible")
+			}})
+		.on("mouseout",function(e,d){
+			d3.selectAll("path").style("stroke","none")
+			popup.html("").style("visibility","hidden")
+		});
+}
+
+function drawDistributionMap(divName,geo,data,nationData,selectedColumn,projection){
+	var title = keys[selectedColumn]
+	// console.log(divName)
+// 	console.log(data, nationData)
+
+	var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+	mapDiv.append("div").html("distribution of foreign born")
+
+	var popup = mapDiv.append("div")
+		.attr("class","popup")
+		.style("width","150px")
+		// .style("height","100px")
+		.style("padding","10px")
+					 .style("position","absolute")
+
+	var svg = mapDiv
+		.append("svg")
+		.attr("id",divName+"_svg")
+		.attr("width", width )
+		.attr("height",height)
+		.append("g")
+	var max = d3.max(Object.keys(data),
+		function(d){
+			var nationValue = nationData[selectedColumn]
+			var countyValue = data[d][selectedColumn]
+			var portion = countyValue/nationValue
+			return portion
+		})
+	var cScale = d3.scaleLinear().domain([0,max/5]).range(["#ddd","magenta"])
+
+	drawKey(divName,Math.round(max/5*10000)/100+"%")
+
+	svg.append("g")
+		.selectAll("path")
+		.data(geo.features)
+		.enter()
+		.append("path")
+		.attr("d", d3.geoPath()
+		.projection(projection)
+		)
+		.style("cursor","pointer")
+		// .attr("stroke","#fff")
+		// .attr("stroke-width",.5)
+		// set the color of each country
+		.attr("fill", function (d) {
+		//console.log(d)
+			var geoid = d.properties['GEOID']
+			if(Object.keys(data).indexOf(geoid)>-1){
+				var nationValue = nationData[selectedColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = countyValue/nationValue
+				return cScale(portion)
+			}
+			return "green"
+		})
+		.on("mouseover",function(e,d){
+			var geoid = d.properties["GEOID"]
+			var countyName = d.properties['NAMELSAD']
+			var stateName = d.properties["STATE_NAME"]
+			d3.selectAll("path").style("stroke","none")
+			d3.select(this).style("stroke","#000")
+			if(Object.keys(data).indexOf(geoid)>-1){
+				var nationValue = nationData[selectedColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = Math.round(countyValue/nationValue*10000)/100+"%"
+				popup.html(countyName+"<br>"+stateName+"<br>"+portion+" of all foreign born live in this county")
+					.style("background-color","rgba(255,255,255,.7)")
+					.style("left",(event.clientX+20)+"px")
+					.style("top",event.clientY+"px")
+					.style("z-index",999)
+					.style("border","1px solid black")
+					.style("visibility","visible")
+			}})
+		.on("mouseout",function(e,d){
+			d3.selectAll("path").style("stroke","none")
+			popup.html("").style("visibility","hidden")
+		});
+}
+
+function drawDistributionMinusPopMap(divName,geo,data,nationData,selectedColumn,projection){
+	var title = keys[selectedColumn]
+	var mapDiv= d3.select("#"+divName).append('div').attr("id",selectedColumn)
+	mapDiv.append("div").html("distribution of foreign born - pop distribution")
+
+	var popup = mapDiv.append("div")
+		.attr("class","popup")
+		.style("width","150px")
+		// .style("height","100px")
+		.style("padding","10px")
+					 .style("position","absolute")
+
+	var svg = mapDiv
+		.append("svg")
+		.attr("id",divName+"_svg")
+		.attr("width", width )
+		.attr("height",height)
+		.append("g")
+	var max = d3.max(Object.keys(data),
+		function(d){
+			var nationValue = nationData[selectedColumn]
+			var countyValue = data[d][selectedColumn]
+			var portion = countyValue/nationValue
+			
+			
+			var nationTotal = nationData['SE_A06001_001']
+			var countyTotal = data[d]['SE_A06001_001']
+			var popPortion = countyTotal/nationTotal
+			
+			var dif= portion-popPortion
+			
+			return dif
+		})
+		
+	var min = d3.min(Object.keys(data),
+		function(d){
+			var nationValue = nationData[selectedColumn]
+			var countyValue = data[d][selectedColumn]
+			var portion = countyValue/nationValue
+			
+			
+			var nationTotal = nationData['SE_A06001_001']
+			var countyTotal = data[d]['SE_A06001_001']
+			var popPortion = countyTotal/nationTotal
+			
+			var dif= portion-popPortion
+			
+			return dif
+		})
+		
+	var cScale = d3.scaleLinear().domain([min,0,max]).range(["cyan","#ddd","magenta"])
+
+	drawDifKey(divName,Math.round(min*10000)/100+"%",Math.round(max*10000)/100+"%")
+
+	svg.append("g")
+		.selectAll("path")
+		.data(geo.features)
+		.enter()
+		.append("path")
+		.attr("d", d3.geoPath()
+		.projection(projection)
+		)
+		.style("cursor","pointer")
+		// .attr("stroke","#fff")
+		// .attr("stroke-width",.5)
+		// set the color of each country
+		.attr("fill", function (d) {
+		//console.log(d)
+			var geoid = d.properties['GEOID']
+			if(Object.keys(data).indexOf(geoid)>-1){
+				var nationValue = nationData[selectedColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = countyValue/nationValue
+				
+				var nationTotal = nationData['SE_A06001_001']
+				var countyTotal = data[geoid]['SE_A06001_001']
+				var popPortion = countyTotal/nationTotal
+				
+				var dif= portion-popPortion
+				
+				return cScale(dif)
+			}
+			return "green"
+		})
+		.on("mouseover",function(e,d){
+			var geoid = d.properties["GEOID"]
+			var countyName = d.properties['NAMELSAD']
+			var stateName = d.properties["STATE_NAME"]
+			d3.selectAll("path").style("stroke","none")
+			d3.select(this).style("stroke","#000")
+			
+			if(Object.keys(data).indexOf(geoid)>-1){
+				
+				var nationValue = nationData[selectedColumn]
+				var countyValue = data[geoid][selectedColumn]
+				var portion = Math.round(countyValue/nationValue*10000)/100+"%"
+				
+				
+				var nationTotal = nationData['SE_A06001_001']
+				var countyTotal = data[geoid]['SE_A06001_001']
+				var popPortion = Math.round(countyTotal/nationTotal*10000)/100+"%"
+				
+				popup.html(countyName+"<br>"+stateName+"<br>"+portion+" of all foreign born live in this county<br>"+popPortion+" of population live in this county")
+					.style("background-color","rgba(255,255,255,.7)")
+					.style("left",(event.clientX+20)+"px")
+					.style("top",event.clientY+"px")
+					.style("z-index",999)
+					.style("border","1px solid black")
+					.style("visibility","visible")
+			}})
+		.on("mouseout",function(e,d){
+			d3.selectAll("path").style("stroke","none")
+			popup.html("").style("visibility","hidden")
+		});
+}
+
+function drawDifKey(divName,min, max){
+	
+	var svg = d3.select("#"+divName+"_svg")
+	var defs = svg.append("defs");
+
+	var gradient = defs.append("linearGradient")
+		.attr("id", "svgGradientDif")
+		.attr("x1", "0%")
+		.attr("x2", "100%")
+		.attr("y1", "0%")
+		.attr("y2", "0%");
+
+	gradient.append("stop")
+		.attr("class", "start")
+		.attr("offset", "0%")
+		.attr("stop-color", "cyan")
+		.attr("stop-opacity", 1);
+
+
+	gradient.append("stop")
+		.attr("class", "middle")
+		.attr("offset", "50%")
+		.attr("stop-color", "#ddd")
+		.attr("stop-opacity", 1);
+
+	gradient.append("stop")
+		.attr("class", "end")
+		.attr("offset", "100%")
+		.attr("stop-color", "magenta")
+		.attr("stop-opacity", 1);
+
+
+	svg.append("rect")
+		.attr("width",200)
+		.attr("height",10)
+		.attr("x",0)
+		.attr("y",height-20)
+		.attr("fill","url(#svgGradientDif)")
+
+	svg.append('text')
+		.text(max)
+		.attr("x",200)
+		.attr("y",height-20)
+		.attr("text-anchor",'end')
+	
+		
+	svg.append('text')
+		.text(min)
+		.attr("x",0)
+		.attr("y",height-20)
+		.attr("text-anchor",'start')
+}
+
+function drawKey(divName,max){
+	var svg = d3.select("#"+divName+"_svg")
+	var defs = svg.append("defs");
+
+	var gradient = defs.append("linearGradient")
+		.attr("id", "svgGradient")
+		.attr("x1", "0%")
+		.attr("x2", "100%")
+		.attr("y1", "0%")
+		.attr("y2", "0%");
+
+	gradient.append("stop")
+		.attr("class", "start")
+		.attr("offset", "0%")
+		.attr("stop-color", "#ddd")
+		.attr("stop-opacity", 1);
+
+	gradient.append("stop")
+		.attr("class", "end")
+		.attr("offset", "100%")
+		.attr("stop-color", "magenta")
+		.attr("stop-opacity", 1);
+
+	svg.append("rect")
+		.attr("width",200)
+		.attr("height",10)
+		.attr("x",0)
+		.attr("y",height-20)
+		.attr("fill","url(#svgGradient)")
+
+	svg.append('text')
+		.text(max)
+		.attr("x",200)
+		.attr("y",height-20)
+		.attr("text-anchor",'end')
+	svg.append('text')
+		.text("0%")
+		.attr("x",0)
+		.attr("y",height-20)
+		.attr("text-anchor",'start')
+}
+
+
+</script>
