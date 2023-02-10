@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="d3.js"></script>
+<style>
+	body{
+		font-family:helvetica;
+	}
+	.subtitle{font-size:24px;}
+	
+</style>
+<!-- Create a div where the graph will take place -->
+<div id='chart'>chart</div>
+<script>
+var keys = {"A06001_001":"Total Population",
+"A06001_002":"Native Born",
+"A06001_003":"Foreign Born",
+"A06001_004":"Foreign Born: Naturalized Citizen",
+"A06001_005":"Foreign Born: Not a Citizen"}
+var width = 800
+var height = 400
+var wholeCountryData={};
+
+Promise.all([
+	d3.json('allYears_5Year_sameHouse_county.json')
+])
+.then(function(d){
+	drawAll(d)
+})
+ 
+function drawAll(d){
+//	console.log(d[0])
+	var data = d[0]
+
+		drawScatter(data) 
+}
+function formatLineData(data){
+	var formatted = {}
+	//console.log(data)
+	for(var y in data){
+	//	console.log(y)
+		var year = y
+	//	console.log(data[year])
+		var geoids = Object.keys(data[year])
+	//	console.log(geoids)
+		for(var g in geoids){
+			//console.log(g)
+			var geoid = geoids[g]
+			
+			if(Object.keys(formatted).indexOf(geoid)==-1){
+				formatted[geoid]=[]
+			}
+			formatted[geoid].push({year:year,value:value})
+			
+			var value = data[year][geoid]['percentSameHouse']
+			//console.log(year,geoid,value)
+			
+		}
+	}
+	//console.log(formatted)
+	return formatted
+}
+
+function drawScatter(data){
+//	console.log(data)
+	
+	var geoids = Object.keys(data["2010"])
+	//console.log(geoids)
+	var m = 40
+	
+	var svg = d3.select("#chart").append('svg')
+	.attr("width",1000)
+	.attr("height",600+m*2)
+	
+	var years = Object.keys(data).sort(function(d){return parseInt(d)})
+	
+	var yScale = d3.scaleLinear().domain([50,100]).range([600,0])
+	var xScale = d3.scaleLinear().domain([years[0],years[years.length-1]]).range([0,1000])
+	
+	var yAxis = d3.axisLeft().scale(yScale)
+	var xAxis = d3.axisBottom().scale(xScale)
+	
+	svg.append("g").call(yAxis).attr("transform","translate("+m+","+m+")")
+	svg.append("g").call(xAxis).attr("transform","translate("+m+","+(600+m)+")")
+
+var formatted = formatLineData(data)
+//console.log(formatted)
+	for(var f in formatted){
+		if(f =="0100000US"){
+		console.log(f)
+			console.log(formatted[f])
+			
+	svg.append("path").attr("transform","translate("+m+","+m+")")
+	      .datum(formatted[f])
+	      .attr("fill", "none")
+	      .attr("stroke", "red")
+	      .attr("opacity",1)
+	      .attr("stroke-width", 4)
+	      .attr("d", d3.line()
+			.curve(d3.curveBasis)
+	        .x(function(d) { 
+				//console.log(d)
+				return xScale(d.year) })
+	        .y(function(d) { 
+				if(d.value==undefined){
+					return 0
+				}
+				return yScale(d.value) })
+	        )
+		}else{
+	 svg.append("path").attr("transform","translate("+m+","+m+")")
+	      .datum(formatted[f])
+	      .attr("fill", "none")
+	      .attr("stroke", "black")
+	      .attr("opacity",.05)
+	      .attr("stroke-width", 1.5)
+	      .attr("d", d3.line()
+	        .x(function(d) {
+				//console.log(d)
+				return xScale(d.year) })
+	        .y(function(d) { return yScale(d.value) })
+	        )
+		}
+		// console.log(formatted[f])
+
+	}
+	
+	//
+	// for(var i in years){
+	// 	var year = years[i]
+	// 	console.log(year)
+	// 	drawDots(year,geoids,data,svg,m,yScale,xScale)
+	// }
+}
+
+function drawDots(year,geoids,data,svg,m,yScale,xScale){
+	svg.append("g")
+	.attr("transform","translate("+m+","+m+")")
+	.selectAll("circle")
+	.data(geoids)
+	.enter()
+	.append("rect")
+	.attr("height",1)
+	.attr("width",20)
+	.attr("opacity",.1)
+	.attr("x",xScale(year)+20)
+	.attr("y",function(d){
+		//console.log(data["2010"][d])
+		return yScale(data["2010"][d]['percentSameHouse'])
+	})
+}
+
+</script>

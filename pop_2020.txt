@@ -1,0 +1,139 @@
+--------------------------------------------------------------------------------
+Codebook for Social Explorer report ID: R13295698
+--------------------------------------------------------------------------------
+
+Contents
+    - Table Summary
+    - Data Dictionary
+    - Citation and Use
+
+
+--------------------------------------------------------------------------------
+Table Summary
+--------------------------------------------------------------------------------
+ 
+Survey:           Census 2020 - PL94 Redistricting Data
+Dataset:          Social Explorer Tables
+Tables:
+
+      1. Total Population 2020
+         Universe:  none
+         Name:      T1
+         Variables:
+            T001_001:   Total Population
+
+
+      2. Total Population 2010
+         Universe:  none
+         Name:      NV1
+         Variables:
+            T002_001:   Total Population
+
+
+      3. Total Population Change 2010 to 2020
+         Universe:  none
+         Name:      NV2
+         Variables:
+            T011_001:   Total Population Change
+
+
+      4. Total Population Change 2010 to 2020 Percentage
+         Universe:  none
+         Name:      NV3
+         Variables:
+            T012_001:   Total Population Change Percent
+
+
+      5. Population Density 2020
+         Universe:  none
+         Name:      T2
+         Variables:
+            T003_000:   Total Population
+            T003_001:   Population Density
+
+
+      6. Population Density 2010
+         Universe:  none
+         Name:      NV4
+         Variables:
+            T004_000:   Total Population
+            T004_001:   Population Density
+
+
+      7. Total Population Density Change 2010 to 2020
+         Universe:  none
+         Name:      NV5
+         Variables:
+            T013_001:   Total Population Change
+            T013_002:   Population Density Change
+
+
+      8. Total Population Density Change 2010 to 2020 Percentage
+         Universe:  none
+         Name:      NV6
+         Variables:
+            T014_001:   Total Population Change Percent
+            T014_002:   Population Density Change Percent
+
+
+
+
+
+ 
+ 
+ 
+--------------------------------------------------------------------------------
+Data Dictionary
+--------------------------------------------------------------------------------
+ 
+Variables 
+      FIPS:           FIPS
+      NAME:           Name of Area
+      QNAME:          Qualifying Name
+      NATION:         Nation
+      STATE:          State
+      COUNTY:         County
+      CS:             County Subdivision
+      CT:             Census Tract
+      BG:             Block Group
+      PLACE:          Place
+      CD:             Congressional District (116th)
+      SLDUC:          State Legislative District (Upper Chamber)
+      SLDLC:          State Legislative District (Lower Chamber)
+      MSAMSA:         Metropolitan Statistical Area/Micropolitan Statistical Area
+      CSA:            Combined Statistical Area
+      T001_001:       2020 Total Population
+      T002_001:       2010 Total Population
+      T011_001:       Population Change
+      T012_001:       Percent Change Population
+      T003_000:       2020 Total Population
+      T003_001:       2020 Population Density
+      T004_000:       2010 Total Population
+      T004_001:       2010 Population Density
+      T013_001:       Total Population Change
+      T013_002:       Population Density Change
+      T014_001:       Total Population Change Percent
+      T014_002:       Population Density Change Percent
+
+
+
+
+--------------------------------------------------------------------------------
+Citation and Use of Data
+--------------------------------------------------------------------------------
+ 
+All persons are granted a limited license to use this documentation and the
+accompanying data, subject to the following conditions:
+
+* Publications and research reports employing the data
+  must cite it appropriately. The citation should include the following:
+
+	  www.socialexplorer.com
+	  New York City, NY: Social Explorer 2023
+
+
+* Citations should also include the URL for this report:
+
+    http://www.socialexplorer.com/pub/reportdata/HtmlResults.aspx?reportid=R13295698
+
+If you have any questions contact info@socialexplorer.com

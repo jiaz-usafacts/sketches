@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="d3.js"></script>
+<style>
+	body{
+		font-family:helvetica;
+	}
+	.subtitle{font-size:24px;}
+	
+</style>
+<!-- Create a div where the graph will take place -->
+<p class='subtitle'>FOREIGN BORN POPULATION</p>
+<div class="maps" id="map"></div>
+
+<script>
+var keys = {"A06001_001":"Total Population",
+"A06001_002":"Native Born",
+"A06001_003":"Foreign Born",
+"A06001_004":"Foreign Born: Naturalized Citizen",
+"A06001_005":"Foreign Born: Not a Citizen"}
+var width = 400
+var height = 200
+var wholeCountryData={};
+
+var root = './foreignborn/'
+var promises = [d3.json('allCountiesGeojson.geojson'),
+	d3.csv('./nativity_historical/1970.csv'),
+	d3.csv('./nativity_historical/1980.csv'),
+	d3.csv('./nativity_historical/1990.csv'),
+	d3.csv('./nativity_historical/2000.csv'),
+	d3.csv('./nativity_historical/2009.csv')]
+for(var y = 2010; y<2022; y++){
+	//console.log(y)
+	var fileName = "ACSDT5Y"+y+".B05012-Data.csv"
+	var promise = d3.csv(root+fileName)
+	promises.push(promise)
+
+}
+//console.log(promises)
+
+
+Promise.all(promises)
+.then(function(d){
+	//console.log(d)
+	drawAll(d)
+})
+ 
+function dataDict(data,totalColumn,foreignColumn,geoidColumn){
+	//console.log(data)
+	var geoids = []
+	for(var i in data){
+		//console.log(data[i])
+		if(parseInt(data[i][foreignColumn])==0 && parseInt(data[i][totalColumn])>0){
+		var geoid = data[i][geoidColumn].split("US")[1]
+			
+			geoids.push(geoid)
+			//console.log(data[i]['ORG_PA107002'])
+		}
+	}
+	return geoids
+}
+
+
+	
+	
+function drawAll(d){
+	console.log(d)
+	 var geo = d[0]
+	 // var data1970 = dataDict(d[1],'ORG_PA107001','ORG_PA107002','Geo_FIPS')
+// 	 var data1980 = dataDict(d[2],'SE_T119_001','SE_T119_006','Geo_FIPS')
+// 	 var data1990 = dataDict(d[3],'SE_T110_001','SE_T110_003','Geo_FIPS')
+// 	 var data2000 = dataDict(d[4],'SE_T201_001','SE_T201_003','Geo_FIPS')
+// 	 var data2009 = dataDict(d[5],'SE_A06001_002','SE_A06001_003','Geo_FIPS')
+	 var projection = d3.geoAlbersUsa().fitExtent([[0,0],[width,height]],geo)
+	for(var i=6; i<d.length;i++){
+		//console.log(i)
+		//console.log(d[i])
+		 var geoids = dataDict(d[i],'B05012_001E','B05012_003E','GEO_ID')
+		drawPopMap('map',geo,geoids,projection)
+	}
+	
+	//   A06001_002:      Native Born
+         //   A06001_003:      Foreign Born:
+	
+
+	// console.log(data1970)
+// 	console.log(data1980)
+// 	console.log(data1990)
+// 	console.log(data2000)
+// 	console.log(data2009)
+	 
+	 //console.log(nationData)
+	
+	 //draw a map of % county pop that are foreign born
+	 //drawPopMap("popMap",geo,data,"SE_A06001_001","SE_A06001_003",projection)
+	 //draw a map of % of total foreign born in that county
+	 var foreignBornKey = 'SE_A06001_003'
+	// drawDistributionMap("distributionMap",geo,data,nationData,foreignBornKey,projection)
+
+	//drawDistributionMinusPopMap("distributionNormalMap",geo,data,nationData,foreignBornKey,projection)
+
+
+}
+
+function drawPopMap(divName,geo,geoids,projection){
+console.log(geoids)
+	var mapDiv= d3.select("#"+divName).append('div')
+	.attr("display","inline-block")
+	
+	mapDiv.append("div").html("counties with no foreign born")
+
+	var popup = mapDiv.append("div")
+		.attr("class","popup")
+		.style("width","150px")
+		// .style("height","100px")
+		.style("padding","10px").style("position","absolute")
+	var svg = mapDiv
+		.append("svg")
+		.attr("id",divName+"_svg")
+		.attr("width", width )
+		.attr("height",height)
+		.append("g")
+
+	//drawKey(divName,Math.round(max*10000)/100+"%")
+
+	svg.append("g")
+		.selectAll("path")
+		.data(geo.features)
+		.enter()
+		.append("path")
+		.attr("d", d3.geoPath()
+		.projection(projection)
+		)
+		.style("cursor","pointer")
+		// .attr("stroke","#fff")
+		// .attr("stroke-width",.5)
+		// set the color of each country
+		.attr("fill", function (d) {
+		//console.log(d)
+			var geoid = d.properties['GEOID']
+			//console.log(geoid)			
+			if(geoids.indexOf(geoid)>-1){
+				return "red"
+			}else{
+				return "#aaa"
+			}
+		})
+}
+
+
+</script>

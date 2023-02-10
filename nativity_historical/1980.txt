@@ -1,0 +1,78 @@
+--------------------------------------------------------------------------------
+Codebook for Social Explorer report ID: R13295889
+--------------------------------------------------------------------------------
+
+Contents
+    - Table Summary
+    - Data Dictionary
+    - Citation and Use
+
+
+--------------------------------------------------------------------------------
+Table Summary
+--------------------------------------------------------------------------------
+ 
+Survey:           Census 1980
+Dataset:          Social Explorer Tables
+Tables:
+
+      1. Nativity and Place of Birth
+         Universe:  Total Population
+         Name:      T119
+         Variables:
+            T119_001:   Total Population:
+            T119_002:      Native:
+            T119_003:         Born in State of residence
+            T119_004:         Born in different State
+            T119_005:         Born abroad, at sea, etc.
+            T119_006:      Foreign born
+
+
+
+
+
+ 
+ 
+ 
+--------------------------------------------------------------------------------
+Data Dictionary
+--------------------------------------------------------------------------------
+ 
+Variables 
+      Name:           Area Name-Legal/Statistical Area Description (LSAD) Term-Part Indicator
+      QName:          Qualifying Name
+      GISJOIN:        NHGIS GIS Join Field
+      GISJOIN2:       NHGIS GISJoin2 Field
+      SUMLEV:         Summary Level
+      FIPS:           FIPS
+      STATE:          FIPS State Code
+      COUNTY:         FIPS County Code
+      T119_001:       Total Population
+      T119_002:       Total Population: Native
+      T119_003:       Total Population: Native: Born in State of residence
+      T119_004:       Total Population: Native: Born in different State
+      T119_005:       Total Population: Native: Born abroad, at sea, etc.
+      T119_006:       Total Population: Foreign born
+
+
+
+
+--------------------------------------------------------------------------------
+Citation and Use of Data
+--------------------------------------------------------------------------------
+ 
+All persons are granted a limited license to use this documentation and the
+accompanying data, subject to the following conditions:
+
+* Publications and research reports employing the data
+  must cite it appropriately. The citation should include the following:
+
+	  www.socialexplorer.com
+	  New York City, NY: Social Explorer 2023
+
+
+* Citations should also include the URL for this report:
+
+    http://www.socialexplorer.com/pub/reportdata/HtmlResults.aspx?reportid=R13295889
+
+If you have any questions contact info@socialexplorer.com

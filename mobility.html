@@ -28,6 +28,8 @@
 <!-- Create a div where the graph will take place -->
 <p class='subtitle'>% of people NOT in same house</p>
 
+<div class="map" id="scatter"></div>
+<div class="map" id="smallScatter"></div>
 
 <div class="map" id="abroadMap"></div>
 <div class="map" id="popMap"></div>
@@ -37,6 +39,28 @@
 
 
 <script>
+	
+	
+	var keys = {
+     "B07003001":" Total",
+      "B07003002":" Total: Male",
+      "B07003003":" Total: Female",
+      "B07003004":" Total: Same House 1 Year Ago",
+      "B07003005":" Total: Same House 1 Year Ago: Male",
+      "B07003006":" Total: Same House 1 Year Ago: Female",
+      "B07003007":" Total: Moved Within Same County",
+      "B07003008":" Total: Moved Within Same County: Male",
+      "B07003009":" Total: Moved Within Same County: Female",
+      "B07003010":" Total: Moved From Different County Within Same State",
+      "B07003011":" Total: Moved From Different County Within Same State: Male",
+      "B07003012":" Total: Moved From Different County Within Same State: Female",
+      "B07003013":" Total: Moved From Different State",
+      "B07003014":" Total: Moved From Different State: Male",
+      "B07003015":" Total: Moved From Different State: Female",
+      "B07003016":" Total: Moved From Abroad",
+      "B07003017":" Total: Moved From Abroad: Male",
+      "B07003018":" Total: Moved From Abroad: Female"
+	}
 //      B07003004:      Total: Same House 1 Year Ago
 ///Users/jzhang/Documents/whoMovedWhere/2021_1year/R13288714_SL050.csv
 
@@ -54,31 +78,147 @@ var margin = {top: 20, right: 20, bottom: 30, left: 20},
 
 Promise.all([
 	d3.json('allCountiesGeojson.geojson'),
-	d3.csv('../2021_1year/R13288714_SL050.csv'),
-	d3.csv('./R13294042_SL050.csv')
+	d3.csv('./2021_1year/R13288714_SL050.csv'),
+	d3.csv('./R13294042_SL050.csv'),
+	d3.csv('./tenure.csv'),
+	d3.csv('./pop_2020.csv')
+	
 ])
 .then(function(d){
 
 	drawAll(d)
+	
 
 })
+// A10060_001:     Occupied Housing Units:
+// A10060_002:     Occupied Housing Units: Owner Occupied
+// A10060_003:     Occupied Housing Units: Renter Occupied
+
+
+      // T001_001:       2020 Total Population
+//       T002_001:       2010 Total Population
+//       T011_001:       Population Change
+//       T012_001:       Percent Change Population
+//       T003_000:       2020 Total Population
+//       T003_001:       2020 Population Density
+//       T004_000:       2010 Total Population
+//       T004_001:       2010 Population Density
+//       T013_001:       Total Population Change
+//       T013_002:       Population Density Change
+//       T014_001:       Total Population Change Percent
+//       T014_002:       Population Density Change Percent
+
+function makeDictBG(data){
+	var formatted ={}
+	for(var i in data){
+		var county = data[i]["Geo_STATE"]+""+data[i]["Geo_COUNTY"]
 		
+		if(Object.keys(formatted).indexOf(county)==-1){
+			formatted[county]=[]
+		}
+		
+		var geoid = data[i]["Geo_FIPS"]
+		var pop =  data[i]["SE_T001_001"]
+		var density =  data[i]["SE_T003_001"]
+		var popChange = data[i]["SE_T011_001"]
+		var densityChange = data[i]["SE_T013_002"]
+		var popChangePercent = data[i]["SE_T014_001"]
+		var densityChangePercent = data[i]["SE_T014_002"]
+		
+		formatted[county].push({
+			geoid:geoid,
+			popChangePercent:popChangePercent,
+			popChange:popChange,
+			densityChange:densityChange,
+			densityChangePercent:densityChangePercent,
+			pop:pop,
+			density:density,
+		})
+		
+	}
+	//console.log(formatted)
+	return formatted
+}
+
+function drawSmallScatter(data){
+
+	var m  = 30
+	var w = 200
+
+
+	var xMax = d3.max(data, function(d){
+		return d.pop
+	})
+	var xScale = d3.scaleLinear().domain([0,xMax*2]).range([0,w])
+	
+	var yMax = d3.max(data, function(d){
+		return d.popChange*1.2
+	})
+	var yMin = d3.min(data, function(d){
+		return d.popChange
+	})
+	
+	var yScale = d3.scaleLinear().domain([yMin,yMax]).range([w,0])
+	
+	var svg = d3.select("#smallScatter").append("div")
+	.style("border","1px solid black")
+	.style("padding","5px")
+	.style("margin","5px")
+	.style("display","inline-block")
+	.append("svg")
+	.attr("width",w+m*2)
+	.attr("height",w+m*2)
+	
+	svg.append('text').text("pop").attr("x",w/2).attr("y",w+m*2)
+	svg.append('text').text("pop % change").attr("x",0).attr("y",m/2)
+	
+	svg.selectAll("circle")
+	.data(data)
+	.enter()
+	.append("circle")
+	.attr("r",5)
+	.attr("opacity",.3)
+	.attr("cx",function(d){
+		return xScale(d.density)
+	})
+	.attr("cy",function(d){
+		return yScale(d.densityChangePercent)
+	})
+	.attr("transform","translate("+m+","+m+")")
+	
+	var xAxis = d3.axisBottom().scale(xScale).ticks(4)
+	var yAxis = d3.axisLeft().scale(yScale).ticks(4)
+	
+	svg.append("g").call(xAxis).attr("transform","translate("+m+","+(w+m)+")")
+	svg.append("g").call(yAxis).attr("transform","translate("+m+","+m+")")
+	
+	console.log(data)
+}
+
 function drawAll(d){
 // console.log(d[6])
-
+	
+	console.log(d[4])
+	var bgData = makeDictBG(d[4])
+	
+	
 	var data =d[1]
 	var geo = d[0]
-	
+	var tenure = makeDictionaryPercent(d[3],'SE_A10060_001',"SE_A10060_003")
+	var mobility =makeDictionaryPercent(d[2],'ACS21_5yr_B07003001','ACS21_5yr_B07003004')
+	//console.log(mobility)
 	var data5Year = d[2]
-	console.log(data5Year)
+	//console.log(data5Year)
 	//console.log(d[3])
 	var timelineData = d[3]
 	var timelineData1Year = d[4]
 	projection = d3.geoAlbersUsa().fitExtent([[0,0],[width,height]],geo)
 
-	drawInverseMap("1 year estimates","abroadMap",geo,data,'ACS21_B07003004',"ACS21_B07003001")
-	drawInverseMap("5 year estimates","abroadMap",geo,data5Year,'ACS21_5yr_B07003004',"ACS21_5yr_B07003001")
+	//drawInverseMap("1 year estimates","abroadMap",geo,data,'ACS21_B07003004',"ACS21_B07003001")
+	drawInverseMap("5 year  estimates","abroadMap",geo,data5Year,'ACS21_5yr_B07003007',"ACS21_5yr_B07003001",bgData)
+drawScatter(mobility,tenure)
 
+	
 }
 
 function makeDictionary(data,key){
@@ -91,9 +231,66 @@ function makeDictionary(data,key){
 	}
 	return formatted
 }
+function makeDictionaryPercent(data,totalKey,columnKey){
+	//console.log(data)
+	var formatted = {}
+	for(var i in data){
+//		console.log(data[i])
+		var geoid = data[i]['Geo_FIPS']
+		
+		var total = data[i][totalKey]
+		var value = data[i][columnKey]
+		var percent = value/total
+		if(total>10){
+			formatted[geoid]=percent
+		}
+	}
+	return formatted
+}
+function drawScatter(mobility,tenure){
+	//console.log(mobility,tenure)
+	var w = 300
+	var m = 30
+	var svg = d3.select("#scatter").append("svg")
+		.attr("width",w+m*2).attr("height",w+m*2)
+	var geoids = Object.keys(mobility)
+	
+	svg.append("text").text("% renters").attr("x",0).attr("y",0)
+	.attr("text-anchor","middle")
+	.attr("transform","translate("+(w/2+m)+","+(w+m*2)+")")
+	
+	svg.append("text").text("% not in same house").attr("x",0).attr("y",0)
+	.attr("transform","translate("+(m)+","+(m)+")")
+	
+	
+	var xScale = d3.scaleLinear().domain([0,1]).range([0,w])
+	var yScale = d3.scaleLinear().domain([0,1]).range([w,0])
+	
+	var xAxis = d3.axisBottom().scale(xScale)
+	var yAxis = d3.axisLeft().scale(yScale)
+	svg.append("g").call(xAxis).attr("transform","translate("+m+","+(w+m)+")")
+	svg.append("g").call(yAxis).attr("transform","translate("+m+","+(m)+")")
+	
+	svg.selectAll("circle")
+	.data(geoids)
+	.enter()
+	.append("circle")
+	.attr("transform","translate("+m+","+(m)+")")
+	.attr("r",2)
+	.attr("opacity",.3)
+	.attr("cx",function(d){
+		return xScale(tenure[d])
+	})
+	.attr("cy",function(d){
+		return yScale(1-mobility[d])
+	})
+	.on("mouseover",function(e,d){
+		console.log(d)
+	})
+	
+}
 
-
-function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
+function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn,bgData){
 	var formatted = makeDictionary(data,selectedColumn)
 	
 				 
@@ -102,7 +299,7 @@ function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
 		
 		var popup = mapDiv.append("div").attr("class","popup")
 				.style("position","absolute")
-				 .style("width","200px").style("height","100px")
+				 .style("width","200px")//.style("height","100px")
 	
 	.style("padding","10px")
 	
@@ -113,49 +310,50 @@ function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
 	     .append("g")
 	       .attr("transform",
 	             "translate(" + margin.left + "," + margin.top + ")");
-				 var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
-			 
-			 
-				 var defs = svg.append("defs");
-
-				 var gradient = defs.append("linearGradient")
-				 .attr("id", "svgGradient")
-				 .attr("x1", "0%")
-				 .attr("x2", "100%")
-				 .attr("y1", "0%")
-				 .attr("y2", "0%");
+				  var colors = ["#dddddd","#dcb6e5","#d78ded","#cf5ef3","#c308f9"]
+ //
+ //
+ // 				 var defs = svg.append("defs");
+ //
+ // 				 var gradient = defs.append("linearGradient")
+ // 				 .attr("id", "svgGradient")
+ // 				 .attr("x1", "0%")
+ // 				 .attr("x2", "100%")
+ // 				 .attr("y1", "0%")
+ // 				 .attr("y2", "0%");
+ //
+ // 				 gradient.append("stop")
+ // 				 .attr("class", "start")
+ // 				 .attr("offset", "0%")
+ // 				 .attr("stop-color", "#ddd")
+ // 				 .attr("stop-opacity", 1);
+ //
+ // 				 gradient.append("stop")
+ // 				 .attr("class", "end")
+ // 				 .attr("offset", "100%")
+ // 				 .attr("stop-color", "magenta")
+ // 				 .attr("stop-opacity", 1);
 				 
-				 gradient.append("stop")
-				 .attr("class", "start")
-				 .attr("offset", "0%")
-				 .attr("stop-color", "#ddd")
-				 .attr("stop-opacity", 1);
-
-				 gradient.append("stop")
-				 .attr("class", "end")
-				 .attr("offset", "100%")
-				 .attr("stop-color", "magenta")
-				 .attr("stop-opacity", 1);
-				 
-				 svg.append("rect").attr("width",200).attr("height",10).attr("x",0).attr("y",0)
-				 .attr("fill","url(#svgGradient)")
+				 // svg.append("rect").attr("width",200).attr("height",10).attr("x",0).attr("y",0)
+			 // 				 .attr("fill","url(#svgGradient)")
 				 
 						//
 			 var max = d3.max(Object.keys(data),
 				 function(d){
 					 var value = data[d][selectedColumn]
 					 var totals = data[d][totalsColumn]
-					 var percent = 1-value/totals
+					 var percent = value/totals
 					 return percent
 				 })
-			console.log("max",max)
-				 svg.append('text').text(Math.round(max*100)+"%")
-				 .attr("x",200).attr("y",-1).attr("text-anchor",'end')
-				 svg.append('text').text("0%").attr("x",0).attr("y",-1).attr("text-anchor",'start')
-				
+//console.log("max",max)
+				 
+			// svg.append('text').text(Math.round(max*100)+"%")
+	// 			 .attr("x",200).attr("y",-1).attr("text-anchor",'end')
+	// 		svg.append('text').text("0%").attr("x",0).attr("y",-1).attr("text-anchor",'start')
+	//		
 			// var min = d3.min(Object.keys(data),function(d){return data[d][selectedColumn]/data[d][totalsColumn]})
 			//
-			var cScale = d3.scaleLinear().domain([0,max]).range(["#ddd","magenta"])
+			var cScale = d3.scaleLinear().domain([0,0.1,.1,max]).range(["#ddd","#ddd","magenta","magenta"])
 				 
 				var b = 10
 			
@@ -174,15 +372,22 @@ function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
 			 .attr("stroke","none")
 	         // set the color of each country
 	         .attr("fill", function (d) {
+				 
 				// return "red"
 				 //console.log(formatted)
 				 //console.log(Object.keys(formatted).length)
 				var geoid = d.properties['GEOID']
+
 				 
 				 if(Object.keys(formatted).indexOf(geoid)>-1){
 					 var value = formatted[geoid][selectedColumn]
 					 var totals = formatted[geoid][totalsColumn]
-					 var percent = 1-value/totals
+					 var percent = value/totals
+					 
+						 //console.log(bgData[geoid])
+						 drawSmallScatter(bgData[geoid])
+					 	
+					 
 					// console.log(percent) 
 				 	return cScale(percent)
 				// var proportion = value/wholeCountryValue
@@ -204,15 +409,15 @@ function drawInverseMap(title,divName,geo,data,selectedColumn,totalsColumn){
 				 
 					 var value = formatted[geoid][selectedColumn]
 					 var totals = formatted[geoid][totalsColumn]
-					 var percent = Math.round((1-value/totals)*10000)/100+"%"
+					 var percent = Math.round((value/totals)*10000)/100+"%"
 				 
 			
 				 var countyName = d.properties['NAMELSAD']
 				 var stateName = d.properties["STATE_NAME"]
 				 
 				 
-				 popup.html(countyName+"<br>"+stateName+"<br>"+percent+" moved in the last year<br>"
-			 +totals+" total population")
+				 popup.html(countyName+"<br>"+stateName+"<br>"+percent+" moved within the county<br>"
+			 +totals+" total population "+value+" moved within the county")
 				// .style("position","absolute")
 				 .style("background-color","rgba(255,255,255,.7)")
 				 .style("left",(event.clientX+20)+"px")

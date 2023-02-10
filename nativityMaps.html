@@ -43,13 +43,13 @@ function drawAll(d){
 	 //console.log(nationData)
 	 var projection = d3.geoAlbersUsa().fitExtent([[0,0],[width,height]],geo)
 	 //draw a map of % county pop that are foreign born
-	 drawPopMap("popMap",geo,data,"SE_A06001_001","SE_A06001_003",projection)
+	 //drawPopMap("popMap",geo,data,"SE_A06001_001","SE_A06001_003",projection)
 	
 	 //draw a map of % of total foreign born in that county
 	 var foreignBornKey = 'SE_A06001_003'
 	 drawDistributionMap("distributionMap",geo,data,nationData,foreignBornKey,projection)
 	
-	drawDistributionMinusPopMap("distributionNormalMap",geo,data,nationData,foreignBornKey,projection)
+	//drawDistributionMinusPopMap("distributionNormalMap",geo,data,nationData,foreignBornKey,projection)
 }
 
 function formatDataByGeoid(data){
